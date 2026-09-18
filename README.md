@@ -107,7 +107,7 @@ técnica.
 ## Rodando o projeto
 
 ```bash
-npm install
+npm install   # o postinstall gera o cliente do Prisma
 
 cp .dev.vars.example .dev.vars
 openssl rand -hex 32   # cole em CODIGO_PEPPER
