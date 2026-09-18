@@ -15,7 +15,7 @@ import {
   type Respostas,
 } from "@/lib/avaliacao";
 import { hashCodigo, normalizarCodigo } from "@/lib/codigo";
-import { prisma } from "@/lib/prisma";
+import { obterPrisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "Seu resultado",
@@ -32,6 +32,7 @@ export default async function PaginaResultado({
   const codigo = normalizarCodigo(decodeURIComponent(codigoBruto));
   if (!codigo) notFound();
 
+  const prisma = await obterPrisma();
   const registro = await prisma.resposta.findUnique({
     where: { codigoHash: hashCodigo(codigo) },
     select: { criadoEm: true, regiao: true, itens: true },

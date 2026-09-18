@@ -1,31 +1,27 @@
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { PrismaD1 } from "@prisma/adapter-d1";
 
 import { PrismaClient } from "@/generated/prisma/client";
 
 /**
- * Cliente Prisma único por processo.
+ * Cliente Prisma sobre o D1 (o SQLite gerenciado do Cloudflare).
  *
- * Em desenvolvimento o Next recarrega os módulos a cada alteração; sem o cache
- * no `globalThis` cada recarga abriria uma nova conexão com o SQLite até
- * estourar o limite de descritores de arquivo.
+ * No Workers não existe conexão de banco para reaproveitar entre requisições:
+ * o D1 é acessado por um binding que vem do contexto do ambiente. Por isso o
+ * cliente é obtido por função, e não exportado como constante — em tempo de
+ * build o binding simplesmente não existe.
+ *
+ * O cache é por isolate: enquanto o mesmo isolate atende requisições, o
+ * binding é o mesmo e o cliente pode ser reaproveitado.
  */
 
-const globalParaPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+let cliente: PrismaClient | undefined;
 
-function criarCliente(): PrismaClient {
-  const url = process.env.DATABASE_URL ?? "file:./dev.db";
-  const adapter = new PrismaBetterSqlite3({ url });
+export async function obterPrisma(): Promise<PrismaClient> {
+  if (cliente) return cliente;
 
-  return new PrismaClient({
-    adapter,
-    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
-  });
-}
+  const { env } = await getCloudflareContext({ async: true });
+  cliente = new PrismaClient({ adapter: new PrismaD1(env.DB) });
 
-export const prisma = globalParaPrisma.prisma ?? criarCliente();
-
-if (process.env.NODE_ENV !== "production") {
-  globalParaPrisma.prisma = prisma;
+  return cliente;
 }

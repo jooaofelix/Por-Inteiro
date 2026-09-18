@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "por-inteiro",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-01",
+  // nodejs_compat dá acesso a node:crypto, usado no hash do código de retorno
+  // e na assinatura do cookie do painel.
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "por-inteiro",
+      "database_id": "b3ef967c-3e2e-49ad-8e12-4b433fef9aec",
+      "migrations_dir": "d1/migrations"
+    }
+  ]
+}

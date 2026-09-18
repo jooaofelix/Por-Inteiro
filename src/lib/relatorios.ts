@@ -1,7 +1,7 @@
 import { DIMENSOES, type DimensaoId } from "@/data/questionario";
 import { buscarRegiao } from "@/data/regioes";
 import { nivelDoEscore, type Nivel } from "@/lib/avaliacao";
-import { prisma } from "@/lib/prisma";
+import { obterPrisma } from "@/lib/prisma";
 
 /**
  * Agregação para o painel da gestão.
@@ -74,6 +74,7 @@ export async function gerarRelatorio(periodoDias: number | null): Promise<Relato
       ? undefined
       : new Date(Date.now() - periodoDias * 24 * 60 * 60 * 1000);
 
+  const prisma = await obterPrisma();
   const linhas: LinhaResposta[] = await prisma.resposta.findMany({
     where: desde ? { criadoEm: { gte: desde } } : undefined,
     select: {

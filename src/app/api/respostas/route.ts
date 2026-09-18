@@ -12,7 +12,7 @@ import {
 import { ehRegiaoValida } from "@/data/regioes";
 import { escoresPorDimensao } from "@/lib/avaliacao";
 import { gerarCodigo, hashCodigo } from "@/lib/codigo";
-import { prisma } from "@/lib/prisma";
+import { obterPrisma } from "@/lib/prisma";
 import { dentroDoLimite, origemDaRequisicao } from "@/lib/limite-requisicoes";
 
 /** Envios por origem a cada 10 minutos. Uma unidade inteira responde de
@@ -69,6 +69,7 @@ export async function POST(request: Request) {
 
   const codigo = gerarCodigo();
 
+  const prisma = await obterPrisma();
   await prisma.resposta.create({
     data: {
       codigoHash: hashCodigo(codigo),

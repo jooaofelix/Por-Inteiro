@@ -49,3 +49,9 @@ next-env.d.ts
 *.db
 *.db-journal
 prisma/*.db
+
+# Cloudflare
+.open-next/
+.wrangler/
+d1/demo.sql
+.dev.vars

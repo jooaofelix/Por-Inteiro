@@ -98,8 +98,9 @@ técnica.
 
 - **Next.js 16** (App Router) + **React 19** + **TypeScript**
 - **Tailwind CSS 4** com os tokens da identidade visual
-- **Prisma 7** + **SQLite** em desenvolvimento (troca para Postgres alterando o
-  `provider` no schema e o adaptador em `src/lib/prisma.ts`)
+- **Cloudflare Workers** via `@opennextjs/cloudflare`, com **D1** (o SQLite
+  gerenciado da Cloudflare) como banco
+- **Prisma 7** com o adaptador `@prisma/adapter-d1`
 - **Zod** na validação do envio
 - Testes com o runner nativo do Node (`node --test`)
 
@@ -108,37 +109,82 @@ técnica.
 ```bash
 npm install
 
-cp .env.example .env
-# gere os segredos e preencha o .env:
-openssl rand -hex 32   # CODIGO_PEPPER
-openssl rand -hex 32   # SESSION_SECRET
+cp .dev.vars.example .dev.vars
+openssl rand -hex 32   # cole em CODIGO_PEPPER
+openssl rand -hex 32   # cole em SESSION_SECRET
 # e escolha uma ADMIN_SENHA
 
-npm run db:migrate      # cria o banco e aplica as migrações
-npm run demo:popular    # opcional: 140 respostas sintéticas para ver o painel
-npm run dev
+npm run d1:migrar       # cria o schema no D1 local
+npm run demo:gerar      # opcional: gera d1/demo.sql
+npx wrangler d1 execute por-inteiro --local --file d1/demo.sql
+
+npm run dev             # http://localhost:3000, já com o D1 local
 ```
+
+O `next dev` enxerga os bindings do Cloudflare (inclusive o D1) por causa do
+`initOpenNextCloudflareForDev()` em `next.config.ts`, então o ambiente de
+desenvolvimento é o mesmo de produção.
 
 | Comando | O que faz |
 | --- | --- |
-| `npm run dev` | Servidor de desenvolvimento |
-| `npm run build` / `npm start` | Build e execução de produção |
+| `npm run dev` | Desenvolvimento, com os bindings do Cloudflare |
 | `npm test` | Suíte de testes |
 | `npm run typecheck` | Checagem de tipos |
 | `npm run lint` | ESLint |
-| `npm run db:migrate` | Cria/atualiza o banco local |
-| `npm run db:deploy` | Aplica migrações em produção |
-| `npm run db:studio` | Prisma Studio |
-| `npm run demo:popular` | Popula com dados sintéticos de demonstração |
+| `npm run cf:build` | Empacota o app como Worker em `.open-next/` |
+| `npm run cf:preview` | Roda o Worker empacotado localmente |
+| `npm run cf:deploy` | Publica na Cloudflare |
+| `npm run cf:tipos` | Regenera `cloudflare-env.d.ts` a partir do `wrangler.jsonc` |
+| `npm run d1:migrar` | Aplica as migrações no D1 local |
+| `npm run d1:migrar:producao` | Aplica as migrações no D1 de produção |
+| `npm run db:migrar` | Escreve uma nova migração com o Prisma (veja abaixo) |
+| `npm run demo:gerar` | Gera `d1/demo.sql` com dados sintéticos |
+
+## Publicando
+
+O schema já está aplicado no D1 de produção (`por-inteiro`). Para publicar:
+
+```bash
+# uma vez, para criar os secrets no Worker
+npx wrangler secret put CODIGO_PEPPER
+npx wrangler secret put SESSION_SECRET
+npx wrangler secret put ADMIN_SENHA
+
+npm run cf:deploy
+```
+
+Os secrets ficam no Worker, nunca em arquivo. `CODIGO_PEPPER` em especial não
+pode mudar depois que o sistema estiver em uso: trocá-lo invalida todos os
+códigos de retorno já entregues.
+
+Para popular a produção com os dados de demonstração (só faz sentido antes do
+uso real):
+
+```bash
+npx wrangler d1 execute por-inteiro --remote --file d1/demo.sql
+```
+
+### Mudando o schema
+
+O Prisma escreve as migrações; o Wrangler as aplica no D1.
+
+```bash
+cp .env.example .env                       # SQLite local, só para o Prisma autorar
+npm run db:migrar -- --name minha_mudanca  # gera prisma/migrations/<data>_minha_mudanca/
+cp prisma/migrations/<data>_minha_mudanca/migration.sql d1/migrations/000N_minha_mudanca.sql
+npm run d1:migrar                          # aplica no D1 local
+npm run d1:migrar:producao                 # aplica no D1 de produção
+npx prisma generate                        # atualiza o cliente
+```
 
 ### Variáveis de ambiente
 
-| Variável | Para quê |
-| --- | --- |
-| `DATABASE_URL` | Conexão com o banco |
-| `CODIGO_PEPPER` | Segredo no hash do código de retorno. **Trocar invalida todos os códigos já entregues.** |
-| `SESSION_SECRET` | Assina o cookie do painel. Obrigatório em produção. |
-| `ADMIN_SENHA` | Senha do painel. Sem ela, o painel fica indisponível. |
+| Variável | Onde vive | Para quê |
+| --- | --- | --- |
+| `CODIGO_PEPPER` | `.dev.vars` / secret do Worker | Segredo no hash do código de retorno. **Trocar invalida todos os códigos já entregues.** |
+| `SESSION_SECRET` | `.dev.vars` / secret do Worker | Assina o cookie do painel |
+| `ADMIN_SENHA` | `.dev.vars` / secret do Worker | Senha do painel. Sem ela, o painel fica indisponível. |
+| `DATABASE_URL` | `.env` | Só para o Prisma escrever migrações. A aplicação não usa. |
 
 ## Mapa do código
 
@@ -203,11 +249,11 @@ Duas observações sobre o uso da paleta em tela:
 - **O painel tem uma senha única**, sem contas nominais nem trilha de auditoria.
   Suficiente enquanto ele só mostra agregados; o ponto de troca é
   `src/lib/admin.ts`.
-- **O limitador de requisições é em memória**, então só funciona com uma
-  instância. Com mais de uma, trocar por contador compartilhado ou pelo
-  limitador da borda.
-- **SQLite** serve ao piloto. Para várias unidades em paralelo, migrar para
-  Postgres.
+- **O limitador de requisições é em memória do isolate.** No Workers cada
+  isolate tem a sua contagem, então o limite real é mais frouxo do que os
+  números sugerem. Ele segura robô e envio repetido, mas para um limite
+  rigoroso o caminho é o Rate Limiting da própria Cloudflare ou um contador em
+  Durable Object.
 - **As auditorias de dependência** apontam vulnerabilidades no CLI do Prisma
   (`mysql2`, `deepmerge-ts`). São dependências de desenvolvimento, não vão para
   o runtime de produção.

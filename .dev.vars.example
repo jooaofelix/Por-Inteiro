@@ -1,0 +1,16 @@
+# Segredos da aplicação em desenvolvimento local (`npm run dev` e `npm run cf:preview`).
+# Copie para `.dev.vars`, que não vai para o repositório.
+#
+# Em produção estes valores NÃO ficam em arquivo: são secrets do Worker, criados com
+#   npx wrangler secret put NOME
+
+# Segredo no hash do código de retorno. Gere com: openssl rand -hex 32
+# TROCAR ESTE VALOR INVALIDA TODOS OS CÓDIGOS JÁ ENTREGUES às pessoas: os
+# resultados continuam no banco, mas ninguém consegue mais reabrir os seus.
+CODIGO_PEPPER=""
+
+# Assina o cookie de sessão do painel da gestão. Gere com: openssl rand -hex 32
+SESSION_SECRET=""
+
+# Senha única de acesso ao painel. Sem ela, o painel fica indisponível.
+ADMIN_SENHA=""

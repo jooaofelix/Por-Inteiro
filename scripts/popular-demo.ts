@@ -1,18 +1,22 @@
 /**
- * Popula o banco com respostas sintéticas para demonstrar o painel da gestão.
+ * Gera um arquivo SQL com respostas sintéticas para demonstrar o painel da
+ * gestão.
+ *
+ * No D1 não dá para escrever direto de um script Node: o banco é acessado por
+ * binding do Worker. Então o script emite SQL e o Wrangler aplica:
+ *
+ *   npm run demo:gerar                                  # escreve d1/demo.sql
+ *   npx wrangler d1 execute por-inteiro --local  --file d1/demo.sql
+ *   npx wrangler d1 execute por-inteiro --remote --file d1/demo.sql
  *
  * Os dados são gerados, não reais. O viés embutido (estresse e sono piores que
  * as demais áreas, equipe de plantão pior que administrativo) existe só para
- * que a tela de demonstração pareça com o que a literatura descreve em
- * trabalho de socioeducação — não é dado de pesquisa e não deve ser citado
- * como se fosse.
- *
- *   npm run demo:popular
+ * que a demonstração pareça com o que a literatura descreve em trabalho de
+ * socioeducação — não é dado de pesquisa e não deve ser citado como se fosse.
  */
 
-import "dotenv/config";
-
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
+import { randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
 
 import {
   FAIXAS_ETARIAS,
@@ -25,9 +29,9 @@ import {
 import { REGIOES } from "../src/data/regioes";
 import { escoresPorDimensao } from "../src/lib/avaliacao";
 import { gerarCodigo, hashCodigo } from "../src/lib/codigo";
-import { PrismaClient } from "../src/generated/prisma/client";
 
 const QUANTIDADE = 140;
+const SAIDA = "d1/demo.sql";
 
 /** Quanto menor, pior tende a ser a área. Base 0..1. */
 const TENDENCIA: Record<string, number> = {
@@ -56,48 +60,55 @@ function normalizar(valor: string): string | null {
   return valor.startsWith("Prefiro não informar") ? null : valor;
 }
 
-async function main() {
-  const url = process.env.DATABASE_URL ?? "file:./dev.db";
-  const prisma = new PrismaClient({ adapter: new PrismaBetterSqlite3({ url }) });
-
-  const regioes = REGIOES.filter((r) => r.slug !== "outra");
-  const agora = Date.now();
-
-  for (let i = 0; i < QUANTIDADE; i++) {
-    const funcao = sorteia(FUNCOES);
-    // Quem está no plantão tende a aparecer pior — é o recorte que o painel
-    // precisa conseguir mostrar.
-    const ajuste = funcao === FUNCOES[0] ? -0.1 : funcao === FUNCOES[5] ? 0.08 : 0;
-
-    const itens: Record<string, number> = {};
-    for (const item of ITENS) {
-      itens[item.id] = valorItem(TENDENCIA[item.dimensao] + ajuste, item.positivo);
-    }
-    itens[ITEM_RISCO.id] = Math.random() < 0.07 ? 1 + Math.floor(Math.random() * 2) : 0;
-
-    // Espalha as respostas pelos últimos 10 meses para a série mensal existir.
-    const criadoEm = new Date(agora - Math.random() * 300 * 24 * 60 * 60 * 1000);
-
-    await prisma.resposta.create({
-      data: {
-        codigoHash: hashCodigo(gerarCodigo()),
-        criadoEm,
-        regiao: sorteia(regioes).slug,
-        funcao: normalizar(funcao),
-        tempoCasa: normalizar(sorteia(TEMPOS_DE_CASA)),
-        faixaEtaria: normalizar(sorteia(FAIXAS_ETARIAS)),
-        itens: JSON.stringify(itens),
-        escores: JSON.stringify(escoresPorDimensao(itens)),
-        alertaUrgente: itens[ITEM_RISCO.id] > 0,
-      },
-    });
-  }
-
-  const total = await prisma.resposta.count();
-  console.log(`${QUANTIDADE} respostas de demonstração criadas (total: ${total}).`);
+function texto(valor: string | null): string {
+  if (valor === null) return "NULL";
+  return `'${valor.replace(/'/g, "''")}'`;
 }
 
-main().catch((erro) => {
-  console.error(erro);
-  process.exit(1);
-});
+const regioes = REGIOES.filter((r) => r.slug !== "outra");
+const agora = Date.now();
+const linhas: string[] = [
+  "-- Dados sintéticos de demonstração. Gerados por scripts/popular-demo.ts.",
+  "-- NÃO são respostas reais e não devem ser citados como pesquisa.",
+];
+
+for (let i = 0; i < QUANTIDADE; i++) {
+  const funcao = sorteia(FUNCOES);
+  // Quem está no plantão tende a aparecer pior — é o recorte que o painel
+  // precisa conseguir mostrar.
+  const ajuste = funcao === FUNCOES[0] ? -0.1 : funcao === FUNCOES[5] ? 0.08 : 0;
+
+  const itens: Record<string, number> = {};
+  for (const item of ITENS) {
+    itens[item.id] = valorItem(TENDENCIA[item.dimensao] + ajuste, item.positivo);
+  }
+  itens[ITEM_RISCO.id] = Math.random() < 0.07 ? 1 + Math.floor(Math.random() * 2) : 0;
+
+  // Espalha as respostas pelos últimos 10 meses para a série mensal existir.
+  const criadoEm = new Date(agora - Math.random() * 300 * 24 * 60 * 60 * 1000);
+
+  const valores = [
+    texto(randomUUID()),
+    texto(hashCodigo(gerarCodigo())),
+    texto(criadoEm.toISOString().replace("T", " ").replace("Z", "")),
+    texto(sorteia(regioes).slug),
+    texto(normalizar(funcao)),
+    texto(normalizar(sorteia(TEMPOS_DE_CASA))),
+    texto(normalizar(sorteia(FAIXAS_ETARIAS))),
+    texto(JSON.stringify(itens)),
+    texto(JSON.stringify(escoresPorDimensao(itens))),
+    itens[ITEM_RISCO.id] > 0 ? "1" : "0",
+  ];
+
+  linhas.push(
+    `INSERT INTO "Resposta" ("id","codigoHash","criadoEm","regiao","funcao","tempoCasa","faixaEtaria","itens","escores","alertaUrgente") VALUES (${valores.join(",")});`,
+  );
+}
+
+mkdirSync("d1", { recursive: true });
+writeFileSync(SAIDA, `${linhas.join("\n")}\n`, "utf8");
+
+console.log(`${QUANTIDADE} respostas de demonstração escritas em ${SAIDA}.`);
+console.log("Aplique com:");
+console.log(`  npx wrangler d1 execute por-inteiro --local  --file ${SAIDA}`);
+console.log(`  npx wrangler d1 execute por-inteiro --remote --file ${SAIDA}`);

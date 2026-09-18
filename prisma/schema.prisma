@@ -8,6 +8,13 @@
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
+
+  // O app roda em Cloudflare Workers. Sem isto, o cliente é gerado para Node e
+  // carrega o compilador de consultas chamando `new WebAssembly.Module(buffer)`,
+  // que o runtime do Workers recusa ("Wasm code generation disallowed by
+  // embedder"). Com "workerd", o .wasm é importado como módulo e o bundler o
+  // embute no Worker.
+  runtime = "workerd"
 }
 
 datasource db {

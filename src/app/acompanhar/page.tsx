@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { hashCodigo, normalizarCodigo } from "@/lib/codigo";
 import { dentroDoLimite, origemAtual } from "@/lib/limite-requisicoes";
-import { prisma } from "@/lib/prisma";
+import { obterPrisma } from "@/lib/prisma";
 
 export const metadata: Metadata = {
   title: "Reabrir meu resultado",
@@ -35,6 +35,7 @@ export default async function PaginaAcompanhar({
     const codigo = normalizarCodigo(String(dados.get("codigo") ?? ""));
     if (!codigo) redirect("/acompanhar?erro=invalido");
 
+    const prisma = await obterPrisma();
     const existe = await prisma.resposta.findUnique({
       where: { codigoHash: hashCodigo(codigo) },
       select: { id: true },

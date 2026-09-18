@@ -55,7 +55,9 @@ test("o hash depende do pepper: sem o segredo do servidor ele não se reproduz",
 
   assert.notEqual(comUm, comOutro);
 
-  if (anterior === undefined) delete process.env.CODIGO_PEPPER;
+  // Reflect.deleteProperty em vez de `delete`: os tipos gerados pelo Wrangler
+  // declaram as variáveis de ambiente como obrigatórias.
+  if (anterior === undefined) Reflect.deleteProperty(process.env, "CODIGO_PEPPER");
   else process.env.CODIGO_PEPPER = anterior;
 });
 
