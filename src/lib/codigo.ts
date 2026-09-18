@@ -50,8 +50,28 @@ export function normalizarCodigo(entrada: string): string {
 }
 
 export function hashCodigo(codigo: string): string {
-  const pepper = process.env.CODIGO_PEPPER ?? "";
-  return createHash("sha256").update(`${codigo}:${pepper}`).digest("hex");
+  return createHash("sha256").update(`${codigo}:${pepper()}`).digest("hex");
+}
+
+/**
+ * Sem o pepper, o hash guardado no banco vira um SHA-256 puro do código — e
+ * um código de 8 caracteres é varrível por força bruta offline por quem
+ * obtiver uma cópia do banco. Em produção isso é falha de privacidade, não
+ * detalhe de configuração, então o app recusa subir em vez de degradar calado.
+ *
+ * Em desenvolvimento seguimos com pepper vazio: os dados são descartáveis e
+ * ninguém deveria precisar configurar segredo para rodar o projeto local.
+ */
+function pepper(): string {
+  const configurado = process.env.CODIGO_PEPPER;
+  if (configurado) return configurado;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "CODIGO_PEPPER não configurado. Crie o secret com: wrangler secret put CODIGO_PEPPER",
+    );
+  }
+  return "";
 }
 
 /** Comparação em tempo constante, para não vazar o código por tempo de resposta. */

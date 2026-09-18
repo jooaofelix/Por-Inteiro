@@ -67,3 +67,22 @@ test("a comparação em tempo constante continua correta", () => {
   assert.equal(codigosIguais("abc", "abcd"), false);
   assert.equal(codigosIguais("", ""), true);
 });
+
+test("em produção, o app recusa gerar hash sem o pepper configurado", () => {
+  // Sem pepper, o hash vira SHA-256 puro de um código de 8 caracteres, que é
+  // varrível por força bruta offline. Falhar alto é melhor que degradar calado.
+  const pepperAnterior = process.env.CODIGO_PEPPER;
+  const ambienteAnterior = process.env.NODE_ENV;
+
+  Reflect.deleteProperty(process.env, "CODIGO_PEPPER");
+  Reflect.set(process.env, "NODE_ENV", "production");
+
+  assert.throws(() => hashCodigo("PI-A2C4-K7M9"), /CODIGO_PEPPER/);
+
+  // Em desenvolvimento continua funcionando sem configuração nenhuma.
+  Reflect.set(process.env, "NODE_ENV", "development");
+  assert.doesNotThrow(() => hashCodigo("PI-A2C4-K7M9"));
+
+  if (pepperAnterior !== undefined) process.env.CODIGO_PEPPER = pepperAnterior;
+  Reflect.set(process.env, "NODE_ENV", ambienteAnterior);
+});
