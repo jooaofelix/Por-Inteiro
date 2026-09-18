@@ -1,0 +1,51 @@
+// Por Inteiro — esquema de dados
+//
+// Princípio central: NENHUM dado que identifique a pessoa é armazenado.
+// Não existe nome, CPF, matrícula, e-mail, IP ou CEP completo em nenhuma tabela.
+// O vínculo entre a pessoa e a resposta existe apenas no código de retorno,
+// que fica com ela — o banco guarda somente o hash desse código.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+/// Uma submissão anônima do questionário.
+model Resposta {
+  id String @id @default(cuid())
+
+  /// SHA-256 do código de retorno + pepper. O código em si nunca é gravado:
+  /// se o banco vazar, ninguém consegue reabrir o resultado de ninguém.
+  codigoHash String @unique
+
+  criadoEm DateTime @default(now())
+
+  /// Recorte territorial (slug de src/data/regioes.ts). Guardamos a região,
+  /// nunca o CEP completo, para não estreitar demais o grupo.
+  regiao String
+
+  /// Recortes opcionais, sempre em faixas largas. Podem vir nulos: responder
+  /// é escolha da pessoa e o questionário funciona sem eles.
+  funcao      String?
+  tempoCasa   String?
+  faixaEtaria String?
+
+  /// Respostas cruas, JSON { [itemId]: 0..4 }. Mantidas para permitir
+  /// recalcular escores se a régua de pontuação mudar.
+  itens String
+
+  /// Escores calculados por dimensão, JSON { [dimensaoId]: 0..100 }.
+  escores String
+
+  /// Marca que a pessoa sinalizou pensamentos de autolesão no item de triagem.
+  /// Serve para a gestão dimensionar a urgência do cuidado — nunca para
+  /// localizar quem respondeu.
+  alertaUrgente Boolean @default(false)
+
+  @@index([criadoEm])
+  @@index([regiao])
+}

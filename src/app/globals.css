@@ -1,0 +1,143 @@
+@import "tailwindcss";
+
+/*
+ * Sistema visual do Por Inteiro, derivado da identidade da marca.
+ *
+ * Paleta oficial
+ *   azul-marinho  #092957  confiança, estabilidade, profundidade
+ *   azul-vivo     #0088FF  energia, acesso, movimento
+ *   azul-claro    #8BCBFA  humanidade, acolhimento, equilíbrio
+ *   branco        #FFFFFF  clareza, respiro, simplicidade
+ *
+ * Duas observações sobre como a paleta é usada aqui:
+ *
+ * 1. O azul-vivo puro sobre branco tem contraste 3,3:1 — suficiente para
+ *    preenchimento e gráfico, insuficiente para texto (a WCAG AA pede 4,5:1).
+ *    Por isso existe `--acento-texto`, uma versão levemente mais escura do
+ *    mesmo azul, usada em links e rótulos. A marca continua a mesma; o que
+ *    muda é só o tom que carrega palavra.
+ *
+ * 2. Os três níveis de resultado precisam ser distinguíveis entre si, e azul
+ *    contra azul não resolve isso. Eles têm cores semânticas próprias,
+ *    calibradas para conviver com o azul-marinho, e a cor nunca aparece
+ *    sozinha: vem sempre com o rótulo escrito e o número ao lado, porque parte
+ *    das pessoas não distingue verde de vermelho e porque o resultado é
+ *    impresso em preto e branco.
+ */
+
+:root {
+  --marinho: #092957;
+  --vivo: #0088ff;
+  --claro: #8bcbfa;
+
+  --fundo: #f5f9ff;
+  --fundo-cartao: #ffffff;
+  --fundo-suave: #eaf3fe;
+  --texto: #092957;
+  --texto-suave: #4c6b93;
+  --borda: #d5e6f9;
+
+  --primaria: #092957;
+  --primaria-escura: #061c3d;
+  --primaria-clara: #e6f2ff;
+  --acento: #0088ff;
+  --acento-texto: #0a68c4;
+
+  --cor-bom: #1c7a53;
+  --cor-bom-fundo: #e2f4ec;
+  --cor-atencao: #8a5a08;
+  --cor-atencao-fundo: #fbeeda;
+  --cor-prioridade: #a8322a;
+  --cor-prioridade-fundo: #fbe7e5;
+
+  --urgencia: #8f2a20;
+  --urgencia-fundo: #fdeeeb;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fundo: #061b33;
+    --fundo-cartao: #0c2749;
+    --fundo-suave: #10325a;
+    --texto: #eaf3ff;
+    --texto-suave: #9fbde0;
+    --borda: #1c4272;
+
+    --primaria: #4fa8ff;
+    --primaria-escura: #8bcbfa;
+    --primaria-clara: #0f2d52;
+    --acento: #4fa8ff;
+    --acento-texto: #8bcbfa;
+
+    --cor-bom: #62cb98;
+    --cor-bom-fundo: #0d2f24;
+    --cor-atencao: #e6b661;
+    --cor-atencao-fundo: #33280f;
+    --cor-prioridade: #f5928a;
+    --cor-prioridade-fundo: #3a1c1c;
+
+    --urgencia: #f7a197;
+    --urgencia-fundo: #3a1b18;
+  }
+}
+
+@theme inline {
+  --color-marinho: var(--marinho);
+  --color-vivo: var(--vivo);
+  --color-claro: var(--claro);
+
+  --color-fundo: var(--fundo);
+  --color-cartao: var(--fundo-cartao);
+  --color-suave: var(--fundo-suave);
+  --color-texto: var(--texto);
+  --color-texto-suave: var(--texto-suave);
+  --color-borda: var(--borda);
+
+  --color-primaria: var(--primaria);
+  --color-primaria-escura: var(--primaria-escura);
+  --color-primaria-clara: var(--primaria-clara);
+  --color-acento: var(--acento);
+  --color-acento-texto: var(--acento-texto);
+
+  --color-bom: var(--cor-bom);
+  --color-bom-fundo: var(--cor-bom-fundo);
+  --color-atencao: var(--cor-atencao);
+  --color-atencao-fundo: var(--cor-atencao-fundo);
+  --color-prioridade: var(--cor-prioridade);
+  --color-prioridade-fundo: var(--cor-prioridade-fundo);
+
+  --color-urgencia: var(--urgencia);
+  --color-urgencia-fundo: var(--urgencia-fundo);
+
+  /* Tipografia geométrica e arredondada, como pede a identidade:
+     Quicksand na marca e nos títulos, Nunito no texto corrido — Nunito
+     mantém o desenho arredondado com melhor legibilidade em corpo pequeno,
+     que é como o questionário é respondido (celular, fim de plantão). */
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-marca: var(--font-quicksand), var(--font-nunito), ui-sans-serif, sans-serif;
+}
+
+body {
+  background: var(--fundo);
+  color: var(--texto);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-marca);
+  letter-spacing: -0.01em;
+}
+
+/* Foco sempre visível: boa parte do formulário é navegada por teclado. */
+:focus-visible {
+  outline: 2px solid var(--acento);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media print {
+  .sem-impressao {
+    display: none !important;
+  }
+}
