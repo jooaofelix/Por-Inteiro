@@ -132,8 +132,8 @@ desenvolvimento é o mesmo de produção.
 | `npm run typecheck` | Checagem de tipos |
 | `npm run lint` | ESLint |
 | `npm run cf:build` | Empacota o app como Worker em `.open-next/` |
-| `npm run cf:preview` | Roda o Worker empacotado localmente |
-| `npm run cf:deploy` | Publica na Cloudflare |
+| `npm run cf:preview` | Empacota e roda o Worker localmente |
+| `npm run cf:deploy` | Empacota e publica na Cloudflare |
 | `npm run cf:tipos` | Regenera `cloudflare-env.d.ts` a partir do `wrangler.jsonc` |
 | `npm run d1:migrar` | Aplica as migrações no D1 local |
 | `npm run d1:migrar:producao` | Aplica as migrações no D1 de produção |
