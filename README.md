@@ -238,6 +238,22 @@ Duas observações sobre o uso da paleta em tela:
   azul não os distingue. A cor nunca aparece sozinha: vem sempre com o rótulo
   escrito e o número ao lado.
 
+## Tamanho do Worker
+
+O limite de um Worker é 3 MB comprimidos no plano gratuito e 10 MB no pago, e
+o Prisma chega perto disso sozinho. Duas decisões no repositório existem só
+para caber:
+
+- `outputFileTracingExcludes` em `next.config.ts` tira do pacote o CLI do
+  Prisma, o PGlite e os compiladores de consulta dos bancos que não usamos.
+  Sem isso o bundle vai a **18 MB** comprimidos e o deploy é recusado.
+- `compilerBuild = "small"` no schema usa a variante menor do compilador de
+  consultas (~1,7 MB contra ~3,2 MB).
+
+Com as duas, o Worker fica em **~2,9 MB** comprimidos. Se um dia voltar a
+crescer, `npx wrangler deploy --dry-run --outdir=/tmp/bundle` mostra o
+tamanho e `du` sobre a pasta diz o que engordou.
+
 ## Limitações conhecidas
 
 - **O instrumento não é validado.** Os itens seguem o formato de escalas de

@@ -15,6 +15,12 @@ generator client {
   // embedder"). Com "workerd", o .wasm é importado como módulo e o bundler o
   // embute no Worker.
   runtime = "workerd"
+
+  // Variante menor do compilador de consultas: ~1,7 MB contra ~3,2 MB da
+  // "fast". Em troca, compilar uma consulta fica um pouco mais lento — o que
+  // não pesa aqui, porque as consultas são simples e poucas, enquanto cada
+  // megabyte conta contra o limite de tamanho do Worker.
+  compilerBuild = "small"
 }
 
 datasource db {
