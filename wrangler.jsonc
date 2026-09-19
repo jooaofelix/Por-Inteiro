@@ -6,6 +6,13 @@
   // nodejs_compat dá acesso a node:crypto, usado no hash do código de retorno
   // e na assinatura do cookie do painel.
   "compatibility_flags": ["nodejs_compat"],
+  // O Workers Builds da Cloudflare roda `wrangler deploy` direto, sem etapa de
+  // build a menos que uma seja configurada no painel. Declarar o comando aqui
+  // faz o empacotamento acontecer a partir do repositório, então publicar não
+  // depende de ninguém lembrar de preencher um campo no dashboard.
+  "build": {
+    "command": "npm run cf:build"
+  },
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
