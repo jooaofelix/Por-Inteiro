@@ -142,6 +142,24 @@ desenvolvimento é o mesmo de produção.
 
 ## Publicando
 
+### Pelo Workers Builds (deploy automático a cada push)
+
+No painel da Cloudflare, em **Workers & Pages → por-inteiro → Settings →
+Build**, o *Deploy command* precisa ser:
+
+```
+npm run cf:deploy
+```
+
+Não use `npx wrangler deploy` aqui. O Wrangler detecta que é um projeto
+OpenNext e delega para `opennextjs-cloudflare deploy`, que só publica o que já
+foi empacotado — e faz isso antes de executar qualquer comando de build,
+inclusive o `build.command` do `wrangler.jsonc`. O resultado é sempre
+`Could not find compiled Open Next config`. O script `cf:deploy` empacota e
+publica em sequência, sem depender dessa ordem interna.
+
+### Pela linha de comando
+
 O schema já está aplicado no D1 de produção (`por-inteiro`). Para publicar:
 
 ```bash
