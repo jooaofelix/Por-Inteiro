@@ -12,17 +12,19 @@ import { useRouter } from "next/navigation";
 
 import { EscalaResposta } from "@/components/EscalaResposta";
 import {
-  DIMENSOES,
   FAIXAS_ETARIAS,
   FUNCOES,
   ITEM_RISCO,
-  ITENS,
   TEMPOS_DE_CASA,
+  VINCULOS,
+  dimensoesPara,
   itensDaDimensao,
+  itensPara,
 } from "@/data/questionario";
 import { REGIOES, regiaoPorCep } from "@/data/regioes";
 
 type Contexto = {
+  vinculo: string;
   regiao: string;
   funcao: string;
   tempoCasa: string;
@@ -30,6 +32,7 @@ type Contexto = {
 };
 
 const CONTEXTO_VAZIO: Contexto = {
+  vinculo: "",
   regiao: "",
   funcao: "",
   tempoCasa: "",
@@ -78,8 +81,19 @@ export function Formulario() {
 
   const topo = useRef<HTMLDivElement>(null);
 
-  // Etapas: contexto, uma por dimensão, e o item de triagem no fim.
-  const totalEtapas = DIMENSOES.length + 2;
+  // As áreas perguntadas dependem do vínculo: um convidado não responde
+  // estresse ocupacional, então o questionário dele tem uma etapa a menos.
+  const dimensoes = useMemo(
+    () => dimensoesPara(contexto.vinculo || null),
+    [contexto.vinculo],
+  );
+  const itensPontuaveis = useMemo(
+    () => itensPara(contexto.vinculo || null),
+    [contexto.vinculo],
+  );
+
+  // Etapas: contexto, uma por área, e o item de triagem no fim.
+  const totalEtapas = dimensoes.length + 2;
 
   // useSyncExternalStore lê o armazenamento sem quebrar a hidratação: no
   // servidor o instantâneo é sempre nulo, e o valor real entra depois que a
@@ -87,7 +101,7 @@ export function Formulario() {
   const rascunhoSalvo = useSyncExternalStore(semAssinatura, lerRascunho, () => null);
   const [rascunhoResolvido, setRascunhoResolvido] = useState(false);
 
-  const respondidas = ITENS.filter(
+  const respondidas = itensPontuaveis.filter(
     (item) => typeof respostas[item.id] === "number",
   ).length;
 
@@ -149,8 +163,8 @@ export function Formulario() {
 
   const itensDaEtapa = useMemo(() => {
     if (etapa === 0 || etapa === totalEtapas - 1) return [];
-    return itensDaDimensao(DIMENSOES[etapa - 1].id);
-  }, [etapa, totalEtapas]);
+    return itensDaDimensao(dimensoes[etapa - 1].id);
+  }, [etapa, totalEtapas, dimensoes]);
 
   function irPara(proxima: number) {
     setEtapa(proxima);
@@ -160,6 +174,10 @@ export function Formulario() {
 
   function avancar() {
     if (etapa === 0) {
+      if (!contexto.vinculo) {
+        setErro("Escolha o seu vínculo para continuar.");
+        return;
+      }
       if (!contexto.regiao) {
         setErro("Escolha a sua região para podermos indicar apoio perto de você.");
         return;
@@ -193,6 +211,7 @@ export function Formulario() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          vinculo: contexto.vinculo,
           regiao: contexto.regiao,
           funcao: contexto.funcao || null,
           tempoCasa: contexto.tempoCasa || null,
@@ -223,7 +242,7 @@ export function Formulario() {
     }
   }
 
-  const progresso = Math.round((respondidas / ITENS.length) * 100);
+  const progresso = Math.round((respondidas / itensPontuaveis.length) * 100);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8" ref={topo}>
@@ -233,7 +252,7 @@ export function Formulario() {
             Etapa {etapa + 1} de {totalEtapas}
           </span>
           <span>
-            {respondidas} de {ITENS.length} perguntas
+            {respondidas} de {itensPontuaveis.length} perguntas
           </span>
         </div>
         <div
@@ -293,11 +312,11 @@ export function Formulario() {
         <section>
           <h1 className="text-2xl font-bold">
             <span aria-hidden className="mr-2">
-              {DIMENSOES[etapa - 1].icone}
+              {dimensoes[etapa - 1].icone}
             </span>
-            {DIMENSOES[etapa - 1].nome}
+            {dimensoes[etapa - 1].nome}
           </h1>
-          <p className="mt-2 text-texto-suave">{DIMENSOES[etapa - 1].descricao}</p>
+          <p className="mt-2 text-texto-suave">{dimensoes[etapa - 1].descricao}</p>
           <p className="mt-1 text-sm text-texto-suave">
             Pense nas últimas duas semanas. Não existe resposta certa — responda o que
             for verdade para você.
@@ -389,12 +408,47 @@ function EtapaContexto({
     <section>
       <h1 className="text-2xl font-bold">Antes de começar</h1>
       <p className="mt-2 text-texto-suave">
-        Só a região é obrigatória, e serve para indicarmos serviços perto de você. O
+        Vínculo e região são as únicas respostas obrigatórias: uma define quais
+        perguntas aparecem, a outra serve para indicarmos serviços perto de você. O
         resto ajuda a Fundação a enxergar onde o cuidado precisa chegar primeiro — e
-        você pode pular tudo.
+        você pode pular.
       </p>
 
       <div className="mt-6 space-y-5">
+        <fieldset>
+          <legend className="font-medium">Qual é o seu vínculo?</legend>
+          <div className="mt-3 space-y-2">
+            {VINCULOS.map((opcao) => {
+              const selecionado = contexto.vinculo === opcao.id;
+              return (
+                <label
+                  key={opcao.id}
+                  className={`flex cursor-pointer gap-3 rounded-xl border p-4 transition ${
+                    selecionado
+                      ? "border-primaria bg-primaria-clara"
+                      : "border-borda bg-cartao hover:border-primaria"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="vinculo"
+                    value={opcao.id}
+                    checked={selecionado}
+                    onChange={() => aoMudar("vinculo", opcao.id)}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block font-medium">{opcao.rotulo}</span>
+                    <span className="block text-sm text-texto-suave">
+                      {opcao.descricao}
+                    </span>
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        </fieldset>
+
         <div className="rounded-xl border border-borda bg-cartao p-4">
           <label htmlFor="cep" className="block font-medium">
             CEP <span className="font-normal text-texto-suave">(opcional)</span>

@@ -6,6 +6,11 @@ import {
   ITEM_RISCO,
   ITENS,
   VALOR_MAXIMO,
+  VINCULOS,
+  buscarVinculo,
+  dimensoesPara,
+  ehVinculoValido,
+  itensPara,
 } from "../src/data/questionario";
 import {
   calcularResultado,
@@ -142,4 +147,60 @@ test("dimensão em nível bom não gera encaminhamento, em prioridade gera", () 
   for (const dimensao of calcularResultado(piorCaso()).dimensoes) {
     assert.ok(dimensao.encaminhamentos.length > 0, dimensao.dimensao.nome);
   }
+});
+
+test("o convidado não é perguntado sobre estresse no trabalho", () => {
+  const areas = dimensoesPara("convidado").map((d) => d.id);
+
+  assert.ok(!areas.includes("estresse"));
+  assert.equal(areas.length, DIMENSOES.length - 1);
+
+  for (const vinculo of ["servidor", "terceirizado"]) {
+    assert.equal(dimensoesPara(vinculo).length, DIMENSOES.length, vinculo);
+  }
+});
+
+test("a área que o convidado não respondeu não entra zerada na média dele", () => {
+  // O erro que este teste trava: contar "estresse" como 0 faria um convidado
+  // saudável aparecer com índice bem pior do que o real.
+  const respostas: Record<string, number> = {};
+  for (const item of itensPara("convidado")) {
+    respostas[item.id] = item.positivo ? VALOR_MAXIMO : 0;
+  }
+
+  const resultado = calcularResultado(respostas, "convidado");
+
+  assert.equal(resultado.escoreGeral, 100);
+  assert.equal(resultado.dimensoes.length, DIMENSOES.length - 1);
+  assert.ok(!resultado.dimensoes.some((d) => d.dimensao.id === "estresse"));
+});
+
+test("os escores gravados do convidado não trazem a área que ele não respondeu", () => {
+  const respostas: Record<string, number> = {};
+  for (const item of itensPara("convidado")) respostas[item.id] = 2;
+
+  const escores = escoresPorDimensao(respostas, "convidado");
+
+  assert.equal("estresse" in escores, false);
+  assert.equal(Object.keys(escores).length, DIMENSOES.length - 1);
+});
+
+test("o questionário do convidado fica completo sem os itens de trabalho", () => {
+  const respostas: Record<string, number> = {};
+  for (const item of itensPara("convidado")) respostas[item.id] = 2;
+
+  assert.equal(questionarioCompleto(respostas, "convidado"), true);
+  // Para um servidor, as mesmas respostas estão incompletas.
+  assert.equal(questionarioCompleto(respostas, "servidor"), false);
+});
+
+test("todo vínculo declarado é reconhecido e nenhum outro passa", () => {
+  for (const vinculo of VINCULOS) {
+    assert.equal(ehVinculoValido(vinculo.id), true, vinculo.id);
+    assert.equal(buscarVinculo(vinculo.id)?.rotulo, vinculo.rotulo);
+    assert.ok(vinculo.dimensoes.length > 0, vinculo.id);
+  }
+
+  assert.equal(ehVinculoValido("diretor-geral"), false);
+  assert.equal(buscarVinculo(null), undefined);
 });

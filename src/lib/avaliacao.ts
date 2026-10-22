@@ -8,12 +8,12 @@
  */
 
 import {
-  DIMENSOES,
   ITEM_RISCO,
-  ITENS,
   VALOR_MAXIMO,
   buscarDimensao,
+  dimensoesPara,
   itensDaDimensao,
+  itensPara,
   type Dimensao,
   type DimensaoId,
   type TipoServico,
@@ -71,8 +71,16 @@ function valorNormalizado(positivo: boolean, valor: number): number {
   return positivo ? valor : VALOR_MAXIMO - valor;
 }
 
-export function calcularResultado(respostas: Respostas): Resultado {
-  const dimensoes = DIMENSOES.map((dimensao) =>
+/**
+ * @param vinculo  decide quais áreas entram. Um convidado não responde
+ *                 estresse ocupacional, e por isso essa área não pesa na média
+ *                 dele — em vez de entrar zerada e afundar o resultado.
+ */
+export function calcularResultado(
+  respostas: Respostas,
+  vinculo?: string | null,
+): Resultado {
+  const dimensoes = dimensoesPara(vinculo).map((dimensao) =>
     avaliarDimensao(dimensao.id, respostas),
   );
 
@@ -128,18 +136,33 @@ function avaliarDimensao(id: DimensaoId, respostas: Respostas): ResultadoDimensa
   };
 }
 
-/** Escores por dimensão, no formato gravado no banco. */
-export function escoresPorDimensao(respostas: Respostas): Record<string, number> {
+/**
+ * Escores por dimensão, no formato gravado no banco.
+ *
+ * Só grava as dimensões perguntadas ao vínculo. Uma dimensão ausente é
+ * diferente de uma dimensão zerada, e os relatórios contam com isso: a média
+ * de "estresse no trabalho" é a média de quem trabalha na unidade, não de
+ * quem foi obrigado a chutar.
+ */
+export function escoresPorDimensao(
+  respostas: Respostas,
+  vinculo?: string | null,
+): Record<string, number> {
   const escores: Record<string, number> = {};
-  for (const d of DIMENSOES) {
+  for (const d of dimensoesPara(vinculo)) {
     escores[d.id] = avaliarDimensao(d.id, respostas).escore;
   }
   return escores;
 }
 
-/** `true` quando todos os itens pontuáveis foram respondidos. */
-export function questionarioCompleto(respostas: Respostas): boolean {
-  return ITENS.every((item) => typeof respostas[item.id] === "number");
+/** `true` quando todos os itens pontuáveis daquele vínculo foram respondidos. */
+export function questionarioCompleto(
+  respostas: Respostas,
+  vinculo?: string | null,
+): boolean {
+  return itensPara(vinculo).every(
+    (item) => typeof respostas[item.id] === "number",
+  );
 }
 
 /**

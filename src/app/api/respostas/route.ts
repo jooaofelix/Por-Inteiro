@@ -5,9 +5,10 @@ import {
   FAIXAS_ETARIAS,
   FUNCOES,
   ITEM_RISCO,
-  ITENS,
   TEMPOS_DE_CASA,
   VALOR_MAXIMO,
+  ehVinculoValido,
+  itensPara,
 } from "@/data/questionario";
 import { ehRegiaoValida } from "@/data/regioes";
 import { escoresPorDimensao } from "@/lib/avaliacao";
@@ -22,6 +23,7 @@ const MAXIMO_ENVIOS = 20;
 const valorDoItem = z.number().int().min(0).max(VALOR_MAXIMO);
 
 const Envio = z.object({
+  vinculo: z.string().refine(ehVinculoValido, "Vínculo desconhecido."),
   regiao: z.string().refine(ehRegiaoValida, "Região desconhecida."),
   funcao: z.enum(FUNCOES).nullable().optional(),
   tempoCasa: z.enum(TEMPOS_DE_CASA).nullable().optional(),
@@ -49,9 +51,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ erro: "Envio inválido." }, { status: 400 });
   }
 
-  const { regiao, funcao, tempoCasa, faixaEtaria, itens } = validado.data;
+  const { vinculo, regiao, funcao, tempoCasa, faixaEtaria, itens } = validado.data;
 
-  const faltando = ITENS.filter((item) => typeof itens[item.id] !== "number");
+  // Só exigimos os itens que este vínculo de fato respondeu.
+  const pontuaveis = itensPara(vinculo);
+  const faltando = pontuaveis.filter((item) => typeof itens[item.id] !== "number");
   if (faltando.length > 0) {
     return NextResponse.json(
       { erro: "O questionário está incompleto." },
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
   // Só gravamos os itens que conhecemos: nada de campo extra vindo do cliente
   // parar no banco.
   const itensConhecidos: Record<string, number> = {};
-  for (const item of [...ITENS, ITEM_RISCO]) {
+  for (const item of [...pontuaveis, ITEM_RISCO]) {
     const valor = itens[item.id];
     if (typeof valor === "number") itensConhecidos[item.id] = valor;
   }
@@ -73,12 +77,13 @@ export async function POST(request: Request) {
   await prisma.resposta.create({
     data: {
       codigoHash: hashCodigo(codigo),
+      vinculo,
       regiao,
       funcao: normalizar(funcao),
       tempoCasa: normalizar(tempoCasa),
       faixaEtaria: normalizar(faixaEtaria),
       itens: JSON.stringify(itensConhecidos),
-      escores: JSON.stringify(escoresPorDimensao(itensConhecidos)),
+      escores: JSON.stringify(escoresPorDimensao(itensConhecidos, vinculo)),
       alertaUrgente: (itensConhecidos[ITEM_RISCO.id] ?? 0) > 0,
     },
   });

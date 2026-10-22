@@ -16,6 +16,7 @@ function linha(parcial: Partial<LinhaResposta> & { escore?: number }): LinhaResp
 
   return {
     criadoEm: parcial.criadoEm ?? new Date("2026-03-01T12:00:00Z"),
+    vinculo: parcial.vinculo ?? "servidor",
     regiao: parcial.regiao ?? "campinas",
     funcao: parcial.funcao ?? null,
     tempoCasa: parcial.tempoCasa ?? null,
@@ -171,4 +172,56 @@ test("o CSV escapa vírgulas e aspas do rótulo", () => {
   );
 
   assert.ok(csv.includes('"Ribeirão Preto, Franca e Araraquara"'));
+});
+
+test("a média de uma área conta só quem foi perguntado sobre ela", () => {
+  // 10 servidores responderam todas as áreas; 10 convidados não responderam
+  // estresse. Se os ausentes entrassem como zero, a média de estresse cairia
+  // pela metade e a gestão leria uma crise que não existe.
+  const semEstresse = JSON.stringify({
+    mental: 60, sono: 60, fisica: 60, alimentar: 60, apoio: 60,
+  });
+
+  const relatorio = resumirRespostas(
+    [
+      ...varias(10, { vinculo: "servidor", escore: 60 }),
+      ...varias(10, { vinculo: "convidado", escores: semEstresse }),
+    ],
+    null,
+  );
+
+  const estresse = relatorio.dimensoes.find((d) => d.id === "estresse");
+  assert.equal(estresse?.n, 10, "só os servidores responderam estresse");
+  assert.equal(estresse?.media, 60, "a média não pode ser diluída por ausências");
+
+  const mental = relatorio.dimensoes.find((d) => d.id === "mental");
+  assert.equal(mental?.n, 20);
+  assert.equal(mental?.media, 60);
+});
+
+test("o índice geral de um convidado não é punido pela área ausente", () => {
+  const semEstresse = JSON.stringify({
+    mental: 80, sono: 80, fisica: 80, alimentar: 80, apoio: 80,
+  });
+
+  const relatorio = resumirRespostas(varias(10, { escores: semEstresse }), null);
+
+  assert.equal(relatorio.mediaGeral, 80);
+});
+
+test("o painel agrupa por vínculo, com a mesma supressão dos outros recortes", () => {
+  const relatorio = resumirRespostas(
+    [
+      ...varias(20, { vinculo: "servidor", escore: 40 }),
+      ...varias(2, { vinculo: "convidado", escore: 90 }),
+    ],
+    null,
+  );
+
+  const servidores = relatorio.porVinculo.find((r) => r.rotulo.includes("Servidor"));
+  const convidados = relatorio.porVinculo.find((r) => r.rotulo.includes("Convidado"));
+
+  assert.equal(servidores?.mediaGeral, 40);
+  assert.equal(convidados?.suprimido, true);
+  assert.equal(convidados?.mediaGeral, null);
 });

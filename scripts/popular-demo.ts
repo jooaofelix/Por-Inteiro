@@ -22,9 +22,10 @@ import {
   FAIXAS_ETARIAS,
   FUNCOES,
   ITEM_RISCO,
-  ITENS,
   TEMPOS_DE_CASA,
   VALOR_MAXIMO,
+  VINCULOS,
+  itensPara,
 } from "../src/data/questionario";
 import { REGIOES } from "../src/data/regioes";
 import { escoresPorDimensao } from "../src/lib/avaliacao";
@@ -73,13 +74,24 @@ const linhas: string[] = [
 ];
 
 for (let i = 0; i < QUANTIDADE; i++) {
+  // A maior parte de quem responde é servidor; convidados são poucos, como na
+  // vida real — e é isso que faz a supressão por grupo pequeno aparecer na
+  // demonstração.
+  const sorteioVinculo = Math.random();
+  const vinculo =
+    sorteioVinculo < 0.78
+      ? VINCULOS[0]
+      : sorteioVinculo < 0.94
+        ? VINCULOS[1]
+        : VINCULOS[2];
+
   const funcao = sorteia(FUNCOES);
   // Quem está no plantão tende a aparecer pior — é o recorte que o painel
   // precisa conseguir mostrar.
   const ajuste = funcao === FUNCOES[0] ? -0.1 : funcao === FUNCOES[5] ? 0.08 : 0;
 
   const itens: Record<string, number> = {};
-  for (const item of ITENS) {
+  for (const item of itensPara(vinculo.id)) {
     itens[item.id] = valorItem(TENDENCIA[item.dimensao] + ajuste, item.positivo);
   }
   itens[ITEM_RISCO.id] = Math.random() < 0.07 ? 1 + Math.floor(Math.random() * 2) : 0;
@@ -91,17 +103,18 @@ for (let i = 0; i < QUANTIDADE; i++) {
     texto(randomUUID()),
     texto(hashCodigo(gerarCodigo())),
     texto(criadoEm.toISOString().replace("T", " ").replace("Z", "")),
+    texto(vinculo.id),
     texto(sorteia(regioes).slug),
     texto(normalizar(funcao)),
     texto(normalizar(sorteia(TEMPOS_DE_CASA))),
     texto(normalizar(sorteia(FAIXAS_ETARIAS))),
     texto(JSON.stringify(itens)),
-    texto(JSON.stringify(escoresPorDimensao(itens))),
+    texto(JSON.stringify(escoresPorDimensao(itens, vinculo.id))),
     itens[ITEM_RISCO.id] > 0 ? "1" : "0",
   ];
 
   linhas.push(
-    `INSERT INTO "Resposta" ("id","codigoHash","criadoEm","regiao","funcao","tempoCasa","faixaEtaria","itens","escores","alertaUrgente") VALUES (${valores.join(",")});`,
+    `INSERT INTO "Resposta" ("id","codigoHash","criadoEm","vinculo","regiao","funcao","tempoCasa","faixaEtaria","itens","escores","alertaUrgente") VALUES (${valores.join(",")});`,
   );
 }
 

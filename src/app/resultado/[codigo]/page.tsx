@@ -35,12 +35,12 @@ export default async function PaginaResultado({
   const prisma = await obterPrisma();
   const registro = await prisma.resposta.findUnique({
     where: { codigoHash: hashCodigo(codigo) },
-    select: { criadoEm: true, regiao: true, itens: true },
+    select: { criadoEm: true, vinculo: true, regiao: true, itens: true },
   });
   if (!registro) notFound();
 
   const respostas = JSON.parse(registro.itens) as Respostas;
-  const resultado = calcularResultado(respostas);
+  const resultado = calcularResultado(respostas, registro.vinculo);
   const regiao = buscarRegiao(registro.regiao);
 
   // Um serviço só aparece uma vez, mesmo quando várias dimensões o indicam.

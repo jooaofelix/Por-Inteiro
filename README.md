@@ -23,8 +23,11 @@ instituição só enxerga o agregado.**
 
 ## O que o sistema faz
 
-1. **Responde.** 26 perguntas em seis áreas de saúde, de 5 a 8 minutos, no
-   celular, sem login e sem identificação.
+1. **Responde.** Até 26 perguntas em seis áreas de saúde, de 5 a 8 minutos, no
+   celular, sem login e sem identificação. A primeira pergunta é o vínculo —
+   servidor, terceirizado ou convidado (familiares e outros) — e ela define
+   quais áreas aparecem: as cinco perguntas sobre plantão e unidade não vão
+   para um convidado, e o resultado dele é calculado sobre as demais.
 2. **Devolve um retrato.** Escore de 0 a 100 por área, com o que está pesando
    nomeado item a item — e o que está sustentando a pessoa também.
 3. **Diz o que dá para fazer.** Orientações do tamanho de quem faz plantão, não

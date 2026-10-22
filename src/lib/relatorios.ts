@@ -1,4 +1,4 @@
-import { DIMENSOES, type DimensaoId } from "@/data/questionario";
+import { DIMENSOES, buscarVinculo, type DimensaoId } from "@/data/questionario";
 import { buscarRegiao } from "@/data/regioes";
 import { nivelDoEscore, type Nivel } from "@/lib/avaliacao";
 import { obterPrisma } from "@/lib/prisma";
@@ -33,6 +33,10 @@ export type MediaDimensao = {
   media: number;
   nivel: Nivel;
   distribuicao: Record<Nivel, number>;
+  /** Quantas pessoas responderam esta área — nem toda área vai a todo mundo. */
+  n: number;
+  /** `true` quando menos de K_MINIMO pessoas responderam esta área. */
+  suprimido: boolean;
 };
 
 export type Relatorio = {
@@ -44,6 +48,7 @@ export type Relatorio = {
   ultimaResposta: Date | null;
   mediaGeral: number;
   dimensoes: MediaDimensao[];
+  porVinculo: Recorte[];
   porRegiao: Recorte[];
   porFuncao: Recorte[];
   porTempoCasa: Recorte[];
@@ -55,6 +60,7 @@ export type Relatorio = {
 /** Uma resposta como ela sai do banco, sem nada que identifique alguém. */
 export type LinhaResposta = {
   criadoEm: Date;
+  vinculo: string;
   regiao: string;
   funcao: string | null;
   tempoCasa: string | null;
@@ -79,6 +85,7 @@ export async function gerarRelatorio(periodoDias: number | null): Promise<Relato
     where: desde ? { criadoEm: { gte: desde } } : undefined,
     select: {
       criadoEm: true,
+      vinculo: true,
       regiao: true,
       funcao: true,
       tempoCasa: true,
@@ -113,6 +120,7 @@ export function resumirRespostas(
     ultimaResposta: respostas.at(-1)?.criadoEm ?? null,
     mediaGeral: 0,
     dimensoes: [],
+    porVinculo: [],
     porRegiao: [],
     porFuncao: [],
     porTempoCasa: [],
@@ -128,6 +136,7 @@ export function resumirRespostas(
     suprimido: false,
     mediaGeral: media(respostas.map((r) => r.mediaGeral)),
     dimensoes: DIMENSOES.map((d) => resumirDimensao(d.id, d.nome, d.icone, respostas)),
+    porVinculo: agrupar(respostas, (r) => buscarVinculo(r.vinculo)?.rotulo ?? r.vinculo),
     porRegiao: agrupar(respostas, (r) => buscarRegiao(r.regiao)?.nome ?? r.regiao),
     porFuncao: agrupar(respostas, (r) => r.funcao),
     porTempoCasa: agrupar(respostas, (r) => r.tempoCasa),
@@ -139,7 +148,13 @@ export function resumirRespostas(
 
 function analisar(linha: LinhaResposta): RespostaAnalisada {
   const escoresLidos = lerEscores(linha.escores);
-  const valores = DIMENSOES.map((d) => escoresLidos[d.id] ?? 0);
+
+  // Só as áreas que esta pessoa de fato respondeu. Tratar uma área ausente
+  // como zero afundaria o índice de quem nunca foi perguntado sobre ela — um
+  // convidado pareceria estar muito pior do que está.
+  const valores = DIMENSOES.filter((d) => d.id in escoresLidos).map(
+    (d) => escoresLidos[d.id],
+  );
 
   return { ...linha, escoresLidos, mediaGeral: media(valores) };
 }
@@ -161,13 +176,28 @@ function resumirDimensao(
   icone: string,
   respostas: RespostaAnalisada[],
 ): MediaDimensao {
-  const escores = respostas.map((r) => r.escoresLidos[id] ?? 0);
+  // Quem não foi perguntado sobre esta área fica de fora da conta inteira, e
+  // não apenas da média: a distribuição também é de quem respondeu.
+  const escores = respostas
+    .filter((r) => id in r.escoresLidos)
+    .map((r) => r.escoresLidos[id]);
+
   const distribuicao: Record<Nivel, number> = { bom: 0, atencao: 0, prioridade: 0 };
   for (const escore of escores) distribuicao[nivelDoEscore(escore)] += 1;
 
   const valorMedio = media(escores);
+  const suprimido = escores.length < K_MINIMO;
 
-  return { id, nome, icone, media: valorMedio, nivel: nivelDoEscore(valorMedio), distribuicao };
+  return {
+    id,
+    nome,
+    icone,
+    media: suprimido ? 0 : valorMedio,
+    nivel: nivelDoEscore(valorMedio),
+    distribuicao,
+    n: escores.length,
+    suprimido,
+  };
 }
 
 function agrupar(
@@ -237,13 +267,14 @@ export function relatorioParaCsv(relatorio: Relatorio): string {
     linhas.push([
       "dimensao",
       d.nome,
-      String(relatorio.total),
-      String(d.media),
+      d.suprimido ? `<${K_MINIMO}` : String(d.n),
+      d.suprimido ? "" : String(d.media),
       `indo bem: ${d.distribuicao.bom} | atencao: ${d.distribuicao.atencao} | prioridade: ${d.distribuicao.prioridade}`,
     ]);
   }
 
   const recortes: [string, Recorte[]][] = [
+    ["vinculo", relatorio.porVinculo],
     ["regiao", relatorio.porRegiao],
     ["funcao", relatorio.porFuncao],
     ["tempo_de_casa", relatorio.porTempoCasa],

@@ -37,6 +37,11 @@ model Resposta {
 
   criadoEm DateTime @default(now())
 
+  /// Vínculo com a Fundação: servidor, terceirizado ou convidado. Única
+  /// resposta de contexto obrigatória, porque define quais áreas são
+  /// perguntadas — não apenas como o resultado é agrupado.
+  vinculo String
+
   /// Recorte territorial (slug de src/data/regioes.ts). Guardamos a região,
   /// nunca o CEP completo, para não estreitar demais o grupo.
   regiao String
@@ -61,4 +66,5 @@ model Resposta {
 
   @@index([criadoEm])
   @@index([regiao])
+  @@index([vinculo])
 }

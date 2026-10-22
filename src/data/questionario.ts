@@ -178,6 +178,83 @@ export const ITEM_RISCO: Item = {
 
 export const TODOS_OS_ITENS: Item[] = [...ITENS, ITEM_RISCO];
 
+/**
+ * Vínculo com a Fundação — a primeira pergunta, e a única de contexto que é
+ * obrigatória.
+ *
+ * Ela não serve só para recorte: define quais áreas são perguntadas. As cinco
+ * perguntas de estresse ocupacional falam de plantão e de unidade, e um
+ * familiar não tem como respondê-las — forçá-lo a marcar algo produziria um
+ * escore inventado. Para o convidado essa área simplesmente não é perguntada,
+ * e o resultado é calculado sobre as demais.
+ */
+export type VinculoId = "servidor" | "terceirizado" | "convidado";
+
+export type Vinculo = {
+  id: VinculoId;
+  rotulo: string;
+  descricao: string;
+  /** Dimensões perguntadas a quem tem este vínculo. */
+  dimensoes: DimensaoId[];
+};
+
+const TODAS_AS_DIMENSOES: DimensaoId[] = [
+  "mental",
+  "estresse",
+  "sono",
+  "fisica",
+  "alimentar",
+  "apoio",
+];
+
+/** As mesmas, sem o estresse ocupacional, que pressupõe trabalho na unidade. */
+const DIMENSOES_SEM_TRABALHO: DimensaoId[] = TODAS_AS_DIMENSOES.filter(
+  (d) => d !== "estresse",
+);
+
+export const VINCULOS: Vinculo[] = [
+  {
+    id: "servidor",
+    rotulo: "Servidor(a) da Fundação CASA",
+    descricao: "Concursado(a) ou comissionado(a), de qualquer função.",
+    dimensoes: TODAS_AS_DIMENSOES,
+  },
+  {
+    id: "terceirizado",
+    rotulo: "Funcionário(a) terceirizado(a)",
+    descricao:
+      "Contratado(a) por empresa prestadora de serviço que atua na unidade.",
+    dimensoes: TODAS_AS_DIMENSOES,
+  },
+  {
+    id: "convidado",
+    rotulo: "Convidado(a)",
+    descricao:
+      "Familiares e outras pessoas próximas. As perguntas sobre plantão não aparecem.",
+    dimensoes: DIMENSOES_SEM_TRABALHO,
+  },
+];
+
+export function buscarVinculo(id: string | null | undefined): Vinculo | undefined {
+  return VINCULOS.find((v) => v.id === id);
+}
+
+export function ehVinculoValido(id: string): id is VinculoId {
+  return VINCULOS.some((v) => v.id === id);
+}
+
+/** Dimensões perguntadas a um vínculo; todas, se o vínculo for desconhecido. */
+export function dimensoesPara(vinculo: string | null | undefined): Dimensao[] {
+  const permitidas = buscarVinculo(vinculo)?.dimensoes ?? TODAS_AS_DIMENSOES;
+  return DIMENSOES.filter((d) => permitidas.includes(d.id));
+}
+
+/** Itens que entram na pontuação para um vínculo. */
+export function itensPara(vinculo: string | null | undefined): Item[] {
+  const permitidas = new Set(dimensoesPara(vinculo).map((d) => d.id));
+  return ITENS.filter((i) => permitidas.has(i.dimensao));
+}
+
 /** Perguntas de contexto. Todas opcionais, todas em faixas largas. */
 export const FUNCOES = [
   "Agente de apoio socioeducativo",

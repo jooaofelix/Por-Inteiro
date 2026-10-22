@@ -122,25 +122,39 @@ export default async function PainelAdmin({ searchParams }: PageProps<"/admin">)
                     <span aria-hidden>{dimensao.icone}</span>
                     <h3 className="font-semibold">{dimensao.nome}</h3>
                   </div>
-                  <div className="mt-3">
-                    <Medidor escore={dimensao.media} nivel={dimensao.nivel} />
-                  </div>
-                  <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-texto-suave">
-                    {(["bom", "atencao", "prioridade"] as const).map((nivel) => (
-                      <div key={nivel} className="flex gap-1">
-                        <dt>{ROTULOS_NIVEL[nivel]}:</dt>
-                        <dd className="font-medium tabular-nums">
-                          {dimensao.distribuicao[nivel]}
-                        </dd>
+                  {dimensao.suprimido ? (
+                    <p className="mt-3 text-sm text-texto-suave">
+                      Menos de {K_MINIMO} respostas nesta área — os números ficam
+                      suprimidos. Nem toda área é perguntada a todo vínculo.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="mt-3">
+                        <Medidor escore={dimensao.media} nivel={dimensao.nivel} />
                       </div>
-                    ))}
-                  </dl>
+                      <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-texto-suave">
+                        {(["bom", "atencao", "prioridade"] as const).map((nivel) => (
+                          <div key={nivel} className="flex gap-1">
+                            <dt>{ROTULOS_NIVEL[nivel]}:</dt>
+                            <dd className="font-medium tabular-nums">
+                              {dimensao.distribuicao[nivel]}
+                            </dd>
+                          </div>
+                        ))}
+                        <div className="flex gap-1">
+                          <dt>responderam:</dt>
+                          <dd className="font-medium tabular-nums">{dimensao.n}</dd>
+                        </div>
+                      </dl>
+                    </>
+                  )}
                 </article>
               ))}
             </div>
           </section>
 
           <section className="mt-10 grid gap-6 sm:grid-cols-2">
+            <TabelaRecorte titulo="Por vínculo" itens={relatorio.porVinculo} />
             <TabelaRecorte titulo="Por região" itens={relatorio.porRegiao} />
             <TabelaRecorte titulo="Por função" itens={relatorio.porFuncao} />
             <TabelaRecorte titulo="Por tempo de casa" itens={relatorio.porTempoCasa} />
