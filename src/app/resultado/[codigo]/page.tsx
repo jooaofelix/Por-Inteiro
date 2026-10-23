@@ -48,7 +48,7 @@ export default async function PaginaResultado({
   for (const dimensao of resultado.dimensoes) {
     for (const tipo of dimensao.encaminhamentos) tipos.add(tipo);
   }
-  const servicos = servicosPara([...tipos], registro.regiao);
+  const servicos = servicosPara([...tipos], registro.regiao, registro.vinculo);
 
   const dataFormatada = new Intl.DateTimeFormat("pt-BR", {
     dateStyle: "long",

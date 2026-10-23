@@ -25,7 +25,7 @@
  * painel administrativo — a forma dos dados já está pensada para isso.
  */
 
-import type { TipoServico } from "@/data/questionario";
+import type { TipoServico, VinculoId } from "@/data/questionario";
 
 export type Servico = {
   id: string;
@@ -41,7 +41,15 @@ export type Servico = {
   verificado: boolean;
   /** Aparece no topo da lista e no painel de urgência. */
   urgencia?: boolean;
+  /**
+   * Vínculos que conseguem usar o serviço; ausente, vale para todos. Serve
+   * para não indicar a um familiar algo que só se acessa pelo RH da unidade.
+   */
+  vinculos?: VinculoId[];
 };
+
+/** Quem tem RH na unidade para pedir o benefício. */
+const COM_RH: VinculoId[] = ["servidor", "terceirizado"];
 
 export const SERVICOS: Servico[] = [
   // ---------------------------------------------------------------------
@@ -182,6 +190,7 @@ export const SERVICOS: Servico[] = [
     contato: "A confirmar com o RH / setor de benefícios da unidade",
     gratuito: false,
     verificado: false,
+    vinculos: COM_RH,
   },
   {
     id: "academias-convenio",
@@ -193,6 +202,7 @@ export const SERVICOS: Servico[] = [
     contato: "A confirmar com o RH / setor de benefícios da unidade",
     gratuito: false,
     verificado: false,
+    vinculos: COM_RH,
   },
   {
     id: "nutricao-regional",
@@ -209,7 +219,7 @@ export const SERVICOS: Servico[] = [
 
 /**
  * Serviços sugeridos para uma pessoa, dados os tipos de encaminhamento que o
- * resultado apontou e a região informada.
+ * resultado apontou, a região e o vínculo informados.
  *
  * Ordem: urgência primeiro, depois verificados, depois o resto — é a ordem em
  * que as informações são confiáveis.
@@ -217,6 +227,7 @@ export const SERVICOS: Servico[] = [
 export function servicosPara(
   tipos: TipoServico[],
   regiao: string,
+  vinculo?: string | null,
 ): Servico[] {
   const procurados = new Set(tipos);
 
@@ -224,7 +235,9 @@ export function servicosPara(
     const atendeRegiao =
       servico.regioes === "todas" || servico.regioes.includes(regiao);
     const atendeTipo = servico.tipos.some((t) => procurados.has(t));
-    return atendeRegiao && atendeTipo;
+    const atendeVinculo =
+      !servico.vinculos || servico.vinculos.some((v) => v === vinculo);
+    return atendeRegiao && atendeTipo && atendeVinculo;
   }).sort((a, b) => {
     if (a.urgencia !== b.urgencia) return a.urgencia ? -1 : 1;
     if (a.verificado !== b.verificado) return a.verificado ? -1 : 1;
